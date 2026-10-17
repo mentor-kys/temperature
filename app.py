@@ -26,30 +26,27 @@ def load_data(path: str = "seoul_temperature.csv") -> pd.DataFrame:
 df = load_data("seoul_temperature.csv")
 
 # ───────────────────────────────────────────────────────────────
-# 2. 연도별 평균기온 계산
-#    ※ 데이터가 없는 연도는 표시하지 않고, 그래프에서 끊김 처리
+# 2. 연도 범위: 1907~2026 (파일에 포함된 범위)
 # ───────────────────────────────────────────────────────────────
+MIN_YEAR, MAX_YEAR = 1907, 2026
+
 df["연도"] = df["날짜"].dt.year
 yearly = df.groupby("연도")["평균기온(℃)"].mean().sort_index()
 
-# 파일에 실제로 데이터가 포함된 연도 범위 (최소~최대)
-data_min, data_max = int(yearly.index.min()), int(yearly.index.max())
-
-# 연도축 = 파일에 포함된 연도만 (정수 리스트로 깔끔하게 생성)
-year_idx = list(range(data_min, data_max + 1))
-yearly_full = yearly.reindex(year_idx)
+# 그래프 연도축 = 1907~2026. 파일에 데이터가 없는 연도는 NaN(그래프 끊김)
+yearly_full = yearly.reindex(list(range(MIN_YEAR, MAX_YEAR + 1)))
 
 # 5년 이동평균 (중앙 기준). 결측(데이터 없는 연도) 포함 윈도우는 NaN 유지
 ma5 = yearly_full.rolling(window=5, center=True, min_periods=5).mean()
 
 # ───────────────────────────────────────────────────────────────
-# 3. 사이드바: 연도 범위 슬라이더 (파일 데이터 범위 내에서만 선택)
+# 3. 사이드바: 연도 범위 슬라이더 (1907~2026)
 # ───────────────────────────────────────────────────────────────
 year_range = st.sidebar.slider(
     "연도 범위",
-    min_value=data_min,
-    max_value=data_max,
-    value=(data_min, data_max),
+    min_value=MIN_YEAR,
+    max_value=MAX_YEAR,
+    value=(MIN_YEAR, MAX_YEAR),
     step=1,
 )
 
