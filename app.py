@@ -21,6 +21,14 @@ def load_data(path: str = "seoul_temperature.csv") -> pd.DataFrame:
 df = load_data("seoul_temperature.csv")
 
 # ───────────────────────────────────────────────────────────────
+# 제외 구간: 1950-09-01 ~ 1953-11-30
+# 이 구간의 데이터는 차트/통계에서 모두 제외하고, 구간 사이를 잇지 않음
+# ───────────────────────────────────────────────────────────────
+exclude_start = "1950-09-01"
+exclude_end = "1953-11-30"
+df = df[(df["날짜"] < exclude_start) | (df["날짜"] > exclude_end)].copy()
+
+# ───────────────────────────────────────────────────────────────
 # 연도 범위: 1907~2026 (고정)
 # ───────────────────────────────────────────────────────────────
 MIN_YEAR, MAX_YEAR = 1907, 2026
@@ -29,14 +37,13 @@ df["연도"] = df["날짜"].dt.year
 yearly = df.groupby("연도")["평균기온(℃)"].mean().sort_index()
 
 # 데이터에 없는(결측치가 있는) 연도는 그래프에서 제외
-# → 연도별 평균값이 NaN인 해는 선/막대 모두 표기하지 않음
 yearly_valid = yearly.dropna()
 
-# 연도축은 1907~2026으로 고정 (결측 연도가 있어도 축은 유지)
-yearly_full = yearly.reindex(list(range(MIN_YEAR, MAX_YEAR + 1)))
+# 연도축 = 1907~2026 (결측 연도가 있으면 NaN → 그래프에서 끊김)
+yearly_plot = yearly_valid.reindex(list(range(MIN_YEAR, MAX_YEAR + 1)))
 
 # 5년 이동평균 (데이터 있는 연도 기준으로 계산)
-ma5 = yearly_valid.rolling(window=5, center=True, min_periods=5).mean()
+ma5 = yearly_plot.rolling(window=5, center=True, min_periods=5).mean()
 
 # ───────────────────────────────────────────────────────────────
 # 사이드바: 연도 범위 슬라이더 (통계 구간 선택)
@@ -51,18 +58,21 @@ year_range = st.sidebar.slider(
 
 start_y, end_y = int(year_range[0]), int(year_range[1])
 
-# 선택 구간 일별 데이터 (통계 계산용)
+# 선택 구간 일별 데이터 (통계 계산용, 제외 구간 제외)
 daily_sel = df[(df["연도"] >= start_y) & (df["연도"] <= end_y)]
 
 # ───────────────────────────────────────────────────────────────
 # 선택 구간 통계
 # ───────────────────────────────────────────────────────────────
 st.subheader("선택 구간 요약")
-col_avg, col_max, col_min, col_n = st.columns(4)
-col_avg.metric("평균기온", f"{daily_sel['평균기온(℃)'].mean():.2f} ℃")
-col_max.metric("최고기온", f"{daily_sel['최고기온(℃)'].max():.2f} ℃")
-col_min.metric("최저기온", f"{daily_sel['최저기온(℃)'].min():.2f} ℃")
-col_n.metric("관측일수", f"{len(daily_sel):,}일")
+if len(daily_sel) > 0:
+    col_avg, col_max, col_min, col_n = st.columns(4)
+    col_avg.metric("평균기온", f"{daily_sel['평균기온(℃)'].mean():.2f} ℃")
+    col_max.metric("최고기온", f"{daily_sel['최고기온(℃)'].max():.2f} ℃")
+    col_min.metric("최저기온", f"{daily_sel['최저기온(℃)'].min():.2f} ℃")
+    col_n.metric("관측일수", f"{len(daily_sel):,}일")
+else:
+    st.warning("선택 구간이 제외 구간(1950-09-01 ~ 1953-11-30)과 겹쳐 데이터가 없습니다.")
 
 # ───────────────────────────────────────────────────────────────
 # 탭 전환: 선 / 막대 / 히트맵 / 산점도 / 상관계수 히트맵
@@ -76,8 +86,8 @@ with tab_line:
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=yearly_valid.index,
-            y=yearly_valid.values,
+            x=yearly_plot.index,
+            y=yearly_plot.values,
             mode="lines+markers",
             name="연도별 평균기온",
             line=dict(color="#2E86AB", width=2),
@@ -113,7 +123,7 @@ with tab_line:
 
 # ── 2) 막대 그래프 ──────────────────────────────────────────────
 with tab_bar:
-    bar_df = yearly_valid.loc[start_y:end_y]
+    bar_df = yearly_plot.loc[start_y:end_y]
     fig = go.Figure(
         go.Bar(
             x=bar_df.index.astype(int),
