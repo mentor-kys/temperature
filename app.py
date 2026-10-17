@@ -19,7 +19,7 @@ def load_data(path: str = "seoul_temperature.csv") -> pd.DataFrame:
     for col in ["평균기온(℃)", "최저기온(℃)", "최고기온(℃)"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df = df.dropna(subset=["날짜"])                          #날짜 이상 행 제거
+    df = df.dropna(subset=["날짜"])                          # 날짜 이상 행 제거
     return df
 
 
@@ -38,7 +38,7 @@ min_year, max_year = int(yearly.index.min()), int(yearly.index.max())
 years = pd.Series(index=range(min_year, max_year + 1), dtype="float64")
 yearly_full = yearly.reindex(years.index)
 
-# 5년 이동평균 (중앙 기준). 데이터 없는 연도를 포함하는 윈도우는 NaN 유지
+# 5년 이동평균 (중앙 기준). 결측(데이터 없는 연도) 포함 윈도우는 NaN 유지
 ma5 = yearly_full.rolling(window=5, center=True, min_periods=5).mean()
 
 # ───────────────────────────────────────────────────────────────
@@ -101,8 +101,17 @@ fig.add_trace(
     )
 )
 
-# 선택 구간 강조 (회색 음영)
-fig.add_vspan(start_y, end_y, fillcolor="rgba(46, 134, 171, 0.08)", label="선택 구간")
+# 선택 구간 강조 (plotly 4.12 이상)
+# data-frame 좌표가 아닌 범주형 축의 경우 문자열(연도명)을 x0/x1에 전달
+fig.add_vrect(
+    x0=str(start_y),
+    x1=str(end_y),
+    fillcolor="rgba(46, 134, 171, 0.08)",
+    line_width=0,
+    layer="below",
+    annotation_text="선택 구간",
+    annotation_position="top left",
+)
 
 fig.update_layout(
     title="서울 연평균기온 추이 및 5년 이동평균",
