@@ -35,8 +35,9 @@ yearly = df.groupby("연도")["평균기온(℃)"].mean().sort_index()
 # 파일에 실제로 데이터가 포함된 연도 범위 (최소~최대)
 data_min, data_max = int(yearly.index.min()), int(yearly.index.max())
 
-# 그래프에 표시할 연도축 = 파일 데이터 범위만 (그 외 연도는 NaN → 그래프 끊김)
-yearly_full = yearly.reindex(pd.Series(index=range(data_min, data_max + 1), dtype="float64"))
+# 연도축 = 파일에 포함된 연도만 (정수 리스트로 깔끔하게 생성)
+year_idx = list(range(data_min, data_max + 1))
+yearly_full = yearly.reindex(year_idx)
 
 # 5년 이동평균 (중앙 기준). 결측(데이터 없는 연도) 포함 윈도우는 NaN 유지
 ma5 = yearly_full.rolling(window=5, center=True, min_periods=5).mean()
