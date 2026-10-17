@@ -5,38 +5,32 @@ import plotly.graph_objects as go
 
 # ───────────────────────────────────────────────────────────────
 # 1. 데이터 로드
-#    - utf-8-sig : 파일 선두의 BOM 제거
-#    - 날짜 앞 탭 문자 제거 : 원본 형식 문제("	1907-10-01") 보정
-#    - 평균/최저/최고기온 수치 변환, 파싱 실패 행 제거
 # ───────────────────────────────────────────────────────────────
 @st.cache_data
 def load_data(path: str = "seoul_temperature.csv") -> pd.DataFrame:
     df = pd.read_csv(path, encoding="utf-8-sig")
-
-    df["날짜"] = df["날짜"].str.strip()                      # 탭·공백 제거
-    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce") # 날짜 변환
-
+    df["날짜"] = df["날짜"].str.strip()
+    df["날짜"] = pd.to_datetime(df["날짜"], errors="coerce")
     for col in ["평균기온(℃)", "최저기온(℃)", "최고기온(℃)"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    df = df.dropna(subset=["날짜"])                          # 날짜 이상 행 제거
+    df = df.dropna(subset=["날짜"])
     return df
 
 
 df = load_data("seoul_temperature.csv")
 
 # ───────────────────────────────────────────────────────────────
-# 2. 연도 범위: 1907~2026 (파일에 포함된 범위)
+# 연도 범위: 1907~2026 (고정)
 # ───────────────────────────────────────────────────────────────
 MIN_YEAR, MAX_YEAR = 1907, 2026
 
 df["연도"] = df["날짜"].dt.year
 yearly = df.groupby("연도")["평균기온(℃)"].mean().sort_index()
 
-# 그래프 연도축 = 1907~2026. 파일에 데이터가 없는 연도는 NaN(그래프 끊김)
+# 연도축 = 1907~2026 전체. 파일에 데이터가 없는 연도는 NaN(그래프 끊김)
 yearly_full = yearly.reindex(list(range(MIN_YEAR, MAX_YEAR + 1)))
 
-# 5년 이동평균 (중앙 기준). 결측(데이터 없는 연도) 포함 윈도우는 NaN 유지
+# 5년 이동평균 (중앙 기준, 결측 포함 윈도우는 NaN 유지)
 ma5 = yearly_full.rolling(window=5, center=True, min_periods=5).mean()
 
 # ───────────────────────────────────────────────────────────────
@@ -95,8 +89,8 @@ fig.add_trace(
 
 # 선택 구간 강조
 fig.add_vrect(
-    x0=str(start_y),
-    x1=str(end_y),
+    x0=start_y,
+    x1=end_y,
     fillcolor="rgba(46, 134, 171, 0.08)",
     line_width=0,
     layer="below",
@@ -110,7 +104,7 @@ fig.update_layout(
     height=560,
     legend=dict(x=0.02, y=0.98),
 )
-# 범주형 축 → 데이터 없는 연도는 마커·선이 끊겨 표기됨
-fig.update_xaxes(type="category")
+# x축 범위를 1907~2026으로 강제 (데이터 구간까지 자동 축소되지 않게 함)
+fig.update_xaxes(range=[MIN_YEAR, MAX_YEAR], autorange=False)
 
 st.plotly_chart(fig, use_container_width=True)
