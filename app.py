@@ -28,11 +28,15 @@ MIN_YEAR, MAX_YEAR = 1907, 2026
 df["연도"] = df["날짜"].dt.year
 yearly = df.groupby("연도")["평균기온(℃)"].mean().sort_index()
 
-# 연도축 = 1907~2026 전체 (데이터 없는 연도는 NaN → 그래프 끊김)
+# 데이터에 없는(결측치가 있는) 연도는 그래프에서 제외
+# → 연도별 평균값이 NaN인 해는 선/막대 모두 표기하지 않음
+yearly_valid = yearly.dropna()
+
+# 연도축은 1907~2026으로 고정 (결측 연도가 있어도 축은 유지)
 yearly_full = yearly.reindex(list(range(MIN_YEAR, MAX_YEAR + 1)))
 
-# 5년 이동평균 (중앙 기준, 결측 포함 윈도우는 NaN 유지)
-ma5 = yearly_full.rolling(window=5, center=True, min_periods=5).mean()
+# 5년 이동평균 (데이터 있는 연도 기준으로 계산)
+ma5 = yearly_valid.rolling(window=5, center=True, min_periods=5).mean()
 
 # ───────────────────────────────────────────────────────────────
 # 사이드바: 연도 범위 슬라이더 (통계 구간 선택)
@@ -72,8 +76,8 @@ with tab_line:
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=yearly_full.index,
-            y=yearly_full.values,
+            x=yearly_valid.index,
+            y=yearly_valid.values,
             mode="lines+markers",
             name="연도별 평균기온",
             line=dict(color="#2E86AB", width=2),
@@ -109,7 +113,7 @@ with tab_line:
 
 # ── 2) 막대 그래프 ──────────────────────────────────────────────
 with tab_bar:
-    bar_df = yearly_full.loc[start_y:end_y]
+    bar_df = yearly_valid.loc[start_y:end_y]
     fig = go.Figure(
         go.Bar(
             x=bar_df.index.astype(int),
